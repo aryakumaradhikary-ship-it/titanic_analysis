@@ -9,6 +9,9 @@ An exploratory data analysis and logistic regression model examining
 factors associated with passenger survival on the Titanic, using the 
 Kaggle Titanic dataset.
 
+## Link to the html document with analysis and findings:
+https://aryakumaradhikary-ship-it.github.io/titanic_analysis/titanic.html
+
 ## Contents
 - `titanic.Rmd` — full R Markdown analysis (code + narrative)
 - `titanic.html` — knitted report (open in a browser to view)
@@ -31,6 +34,3 @@ Kaggle Titanic dataset.
 
 ## Tools
 R, tidyverse (dplyr, ggplot2), R
-
-## Link to the html document with analysis and findings:
-https://aryakumaradhikary-ship-it.github.io/titanic_analysis/titanic.html
