@@ -31,3 +31,6 @@ Kaggle Titanic dataset.
 
 ## Tools
 R, tidyverse (dplyr, ggplot2), R
+
+## Link to the html document with analysis and findings:
+https://aryakumaradhikary-ship-it.github.io/titanic_analysis/titanic.html
