@@ -1,0 +1,207 @@
+---
+title: "Titanic Data Set Analysis"
+author: "By: Arya Adhikary"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: cosmo
+---
+## Introduction
+This analysis explores the Titanic dataset from Kaggle to understand factors that were associated with passanger survival. The analysis examines the role that sex, passenger class, and age had on survival.
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+	message = FALSE,
+	warning = FALSE,
+	echo = FALSE
+)
+library(tidyverse)
+
+```
+
+
+
+## Missing Data
+
+Before diving into analysis, it's worth checking for missing values. After running the 'colSums(is.na(titanic))' code block, it turned out that there were 177 missing ages (about 20% of the passenger), 687 missing cabin numbers (77% of the total), and 2 passengers that missed an embarkation port. The amount of ages missing is notable enough to keep in mind when interpreting age-related patterns, while there are too many cabin numbers missing to have been very useful in the analysis.
+```{r include=FALSE}
+titanic <- read_csv("Titanic-Dataset(in).csv")
+head(titanic)
+
+colSums(is.na(titanic))
+
+```
+
+
+
+## Age Distribution By Survival
+Here we looked at whether the age was related to survival. Since children were prioritized during the evacuation, we'd expect younger children to have higher survival rates. 
+```{r echo=FALSE}
+
+# looking at survival by age distribution
+
+titanic %>%
+  ggplot(aes(x = Age, fill = factor(Survived))) + geom_histogram(binwidth = 4, position = "identity", alpha = .6) + 
+  labs(
+    title = "Age Distribution by Survival",
+    x = "Age",
+    fill = "Survived") + 
+  scale_fill_manual(values = c("0" = "pink", "1" = "coral"), labels = c("No", "Yes"))
+
+```
+The histogram shows a clear spike in survival among the youngest passengers (roughly ages 0-10), while the 20-40 age group, likely working age adults and consisting of more men, shows a much higher proportion of non-survivors. This is consistent with the Titanic's "children and women first" evacuation protocol. 
+
+
+
+## Survival by Sex and Class
+
+Sex and passenger class are two of the most commonly cited factors in the Titanic survival outcomes. Here, we look at how they interact and observe whether the "women and children first" pattern is held consistently across all classes. 
+
+```{r echo=FALSE}
+
+# look at sex, class, and survival
+
+titanic %>%
+  ggplot(aes(x = factor(Pclass), fill = factor(Survived))) + 
+  geom_bar(position = "fill") + 
+  facet_wrap(~Sex) + 
+  labs(
+    title = "Survival Rate by Class and Sex",
+    x = "Passenger Class", 
+    y = "Proportion", 
+    fill = "Survived"
+  ) + 
+  scale_fill_manual(values = c("0" = "pink", "1" = "coral"), labels = c("No", "Yes"))
+
+  
+
+```
+
+Across all three classes, it is clear that women survived at a much higher rate than men. This is clear when observing the 3rd class, where most men did not survive while a majority of the third class women did. 
+
+
+## Summary Table
+The table below breaks down survival counts and rates by sex and class, giving exact numbers behind the pattern seen in the earlier charts!
+```{r echo=FALSE}
+titanic %>%
+  group_by(Sex, Pclass) %>%
+  summarize(
+    n = n(), 
+    survived = sum(Survived),
+    survival_rate = round(survived/n, 3),
+    .groups = "drop"
+  )
+
+
+
+
+```
+From the summary table, we can see that the first-class women had the highest survival rate, while third-class men had the lowest. This confirms numerically what the earlier chart suggested visually: sex and class combined have a strong compounding effect on survival.
+
+## Fare and Survival
+
+The fare that passengers abroad the Titanic is a rough proxy for wealth and class, so we'd expect survivors to have paid highers fares on average. 
+
+```{r}
+titanic %>%
+  ggplot(aes(x = factor(Survived), y = Fare, fill = factor(Survived))) + 
+  geom_boxplot() + 
+  labs(
+    title = "Fare Distribution by Survival", 
+    x = "Survived", 
+    y = "Fare"
+  ) + 
+  scale_fill_manual(values = c("0" = "pink", "1" = "coral"), labels = c("No", "Yes")) + theme(legend.position = 'none')
+
+```
+
+The plot shows that survivors paid a noticeably higher median fare than non-survivors, reinforcing the idea the earlier pattern we discovered, of wealth and class were strongly associated with survival. One survivor paid a fare over $500, a clear outlier that likely reflects a luxury booking.
+
+
+## Family Size and Survival
+
+Passengers traveling with family may have had different survival outcomes than those traveling alone. To create this chart, I combined siblings/spouses (SibSp) with parents/children (Parch) into a single measure to see if a pattern emerges.
+
+```{r}
+
+titanic <- titanic %>%
+  mutate(family_size = SibSp + Parch + 1)
+
+
+titanic %>%
+  ggplot(aes(x = family_size, fill = factor(Survived))) + 
+  geom_bar(position = "fill") + 
+  labs(
+    title = "Survival Rate by Family Size",
+    x = "Family Size (including self)",
+    fill = "Survived"
+  ) + 
+  scale_fill_manual(values = c("0" = "pink", "1" = "coral", labels = c("No", "Yes")))
+
+
+```
+
+The chart shows passengers traveling alone had a survival rate of only about 30%, which those in small families of 2-4 fared much better, peaking around 72% for a family size of 4. Families with more than five members saw survival drop off sharply, with the biggest groups (8+) showing no survivors at all, likely reflecting how difficult it is to keep large families together during the evacuation. 
+
+
+
+## Predicting Survival: Logistic Regression
+
+To move beyond description and into prediction, we fit a logistic regression model that estimates the probability of survival based on sex, passenger class, age, fare, and family size. Since age has missing values, we must fill the missing values with th emedian age before fitting the model. 
+
+```{r}
+
+titanic <- titanic %>%
+  mutate(Age = ifelse(is.na(Age), median(Age, na.rm = TRUE), Age))
+
+# this line is saying to predict survival using the five variables we looked at! + we do binomial to tell R that this is logistic regression (binary) instead of continous
+model <- glm(Survived ~ Sex + Pclass + Age + Fare + family_size, data = titanic, family = "binomial")
+
+summary(model)
+
+```
+
+The model confirms the patterns that we discovered during our exploratory analysis stage. Being male was associated with a sharp decrease in survival odds (p < .001), as was being a lower passenger class (p < .001), being of old age (p<.001), and having a large family size (p<.001). Fare was not a statiscally significant predictor once class, sex, age, and family size were accounted for (p = .119), suggesting its apparent effect in the raw EDA was largely explained by its correlation with passenger class.
+
+```{r}
+exp(coef(model))
+
+```
+
+Exponentiating the coefficients converts them to odds ratios, which are easier to interpret. Being male multiplied the odds of survival by roughly 0.06 compared to being female, facing a reduction of about 94% holding class, age, fare, and family size constant. Each step down in passenger class multiplied survival odds by about 0.34, and each additional family member multiplied odds by about 0.79. Fare's odds ratio was close to 1, consistent with its lack of statistical significance.
+
+```{r}
+
+titanic <- titanic%>%
+  mutate(predicted_prob = predict(model, type = "response"), 
+         predicted_class = ifelse(predicted_prob > .5, 1, 0)) 
+
+accuracy <- mean(titanic$predicted_class == titanic$Survived, na.rm = TRUE)
+accuracy
+
+```
+
+Using a .5 probability threshold to classify predictions, the model correctly predicts survival outcomes for about 80% of the passengers in the dataset. This is a reasonable level of accuracy for a simple model with just 5 predictors, though it is worth noting that this is training accuracy (measured on the same data the model was fit on), instead of accuracy on unseen data, so it likely somewhat overstates how well the model would generalize to new passengers. 
+
+
+## Conclusion
+- Sex was the strongest predictor of survival, with women surviving at a much higher rate than men across every passenger class.
+- Passenger class mattered: 1st class passengers survived more often than those in 3rd class, likely reflecting proximity to lifeboats and priority during evacuation.
+- Younger passengers, especially children, had higher survival rates, consistent with the "women and children first" protocol.
+- Fare, a proxy for wealth, showed a positive relationship with survival in the raw data, but was not statistically significant once class, sex, age, and family size were controlled for in the model.
+- Family size had a non-linear relationship with survival in the raw data: solo travelers and very large families survived at lower rates than small families of 2-4. In the model, each additional family member modestly decreased survival odds.
+- A logistic regression model confirmed sex, class, age, and family size as statistically significant predictors of survival, correctly classifying about 80% of passengers in the training data.
+
+
+
+
+
+
+
+
+
+
+
+
+
